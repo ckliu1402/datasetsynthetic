@@ -1,0 +1,395 @@
+{
+  "name": "RAG_create_charts",
+  "nodes": [
+    {
+      "parameters": {
+        "triggerOn": "folder",
+        "path": "/watch_folder",
+        "events": [
+          "add",
+          "change",
+          "unlink",
+          "addDir",
+          "unlinkDir"
+        ],
+        "options": {
+          "awaitWriteFinish": true,
+          "followSymlinks": true,
+          "ignored": ".DS_Store",
+          "usePolling": true
+        }
+      },
+      "type": "n8n-nodes-base.localFileTrigger",
+      "typeVersion": 1,
+      "position": [
+        -960,
+        48
+      ],
+      "id": "7efedb03-ae20-441b-ad63-4aea8a1ec321",
+      "name": "Local File Trigger"
+    },
+    {
+      "parameters": {
+        "dataType": "binary",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
+      "typeVersion": 1.1,
+      "position": [
+        -496,
+        336
+      ],
+      "id": "2974c5bb-45b0-4066-a3b2-ec2c18973588",
+      "name": "Default Data Loader"
+    },
+    {
+      "parameters": {
+        "mode": "insert",
+        "embeddingBatchSize": 32,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStorePGVector",
+      "typeVersion": 1.3,
+      "position": [
+        -592,
+        48
+      ],
+      "id": "6dd77b6b-1d4d-40b5-9e05-e197f22443ed",
+      "name": "Postgres PGVector Store",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "3BMqiayn8HtXwUPr",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "public": true,
+        "initialMessages": "Hi there! 👋\nMy name is Tectura AI. How can I assist you today?",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "b1369813-d1f6-4f9c-8165-73c2340a1ee9",
+      "name": "When chat message received",
+      "webhookId": "c179a732-24bd-4b06-b1c2-638432524476"
+    },
+    {
+      "parameters": {
+        "options": {
+          "systemMessage": "=You are a helpful assistant to answer user queries via looking into either Knowledge Base or composing a PostgreSQL query in PostgreSQL Database tables, do not use stored procedures. Always use double quote for schema name, table name and field name. The field name and table name are case sensitive. When user is asking sales related questions, look into schema \"Sales\". For purchase, look into \"Purchasing\". etc.\n\nExample.\nWhen user asking how many customers we have. Then make a query into \"Sales\".\"Customer\" and count \"CustomerID\". This field could relate with \"Sales\".\"SalesOrderHeader\", and Header could relate with Details, etc.\nIgnore CompanyName column in query.\n\nAnother example: When user asking about the sales order details, query Sales.SalesOrderDetail and extract ProductID, Unit Price, OrderQty, etc. for calculation. \nUse 'OrderDate' column for any date time related query.\n\nAnother example:\nUser asked \"Top 5 customers by sales amount\", use below syntax to query PostgreSQL.\n\nSELECT \n    s.\"CustomerID\",\n    SUM(sd.\"OrderQty\" * (sd.\"UnitPrice\" - sd.\"UnitPriceDiscount\")) AS total_sales_amount\nFROM \n    \"Sales\".\"SalesOrderHeader\" s\nJOIN \n    \"Sales\".\"SalesOrderDetail\" sd ON s.\"SalesOrderID\" = sd.\"SalesOrderID\"\nGROUP BY \n    s.\"CustomerID\"\nORDER BY \n    total_sales_amount DESC\nLIMIT 5;\n\n\nIf line amount is empty or null, use unit Price minus unit Price Discount, times order quantity to obtain the line total.\n\n\nOn top of a textual answer to user, transform the SQL query result into well-structured JSON object that is formatted in Charts.js at the back, not to display the SQL query and JSON to user. \n\nNext, follow the guideline in the official website, https://quickchart.io/documentation/ to construct a URL like below, https://quickchart.io/chart?width=500&height=300&c=%7Btype:%27bar%27,data:%7Blabels:%5B%27January%27,%27February%27,%27March%27,%27April%27,%27May%27%5D,datasets:%5B%7Blabel:%27Dogs%27,data:%5B50,60,70,180,190%5D%7D,%7Blabel:%27Cats%27,data:%5B100,200,300,400,500%5D%7D%5D%7D%7D\n, which merged the previous JSON object and display the chart image inline to user in the conversation using Markdown. Example format: ![Generated Chart](chart_url)\n\nLimit the graph with maximum 500pixels keep same proportional ratio."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.1,
+      "position": [
+        208,
+        0
+      ],
+      "id": "71020fff-d99b-4999-b30f-414d156dfd4a",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.memoryPostgresChat",
+      "typeVersion": 1.3,
+      "position": [
+        176,
+        224
+      ],
+      "id": "94dcd354-1f7f-4ddd-bb31-66c7e8ed2a61",
+      "name": "Postgres Chat Memory",
+      "credentials": {
+        "postgres": {
+          "id": "3BMqiayn8HtXwUPr",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolDescription": "Use this knowledge base to answer questions from the user",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStorePGVector",
+      "typeVersion": 1.3,
+      "position": [
+        304,
+        224
+      ],
+      "id": "714ec6d5-f33a-4323-bb07-cac98da8dec6",
+      "name": "Postgres PGVector Store1",
+      "credentials": {
+        "postgres": {
+          "id": "3BMqiayn8HtXwUPr",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fileSelector": "={{ $json.path }}",
+        "options": {
+          "fileExtension": "",
+          "fileName": "="
+        }
+      },
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [
+        -768,
+        48
+      ],
+      "id": "513f5294-f1c7-47de-a42d-4edbdbe43ae4",
+      "name": "Read/Write Files from Disk",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "model": "gpt-oss:120b",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        32,
+        224
+      ],
+      "id": "4603270a-e63d-460e-bd04-8db67496e0b9",
+      "name": "Ollama Chat Model",
+      "credentials": {
+        "ollamaApi": {
+          "id": "DRLNzYpNSmplCjf9",
+          "name": "Ollama account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "nomic-embed-text:latest"
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOllama",
+      "typeVersion": 1,
+      "position": [
+        -128,
+        464
+      ],
+      "id": "82a45c9d-4e2a-48a7-9fad-7ae86e915aea",
+      "name": "Embeddings Ollama",
+      "credentials": {
+        "ollamaApi": {
+          "id": "DRLNzYpNSmplCjf9",
+          "name": "Ollama account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "gpt-4o",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatAzureOpenAi",
+      "typeVersion": 1,
+      "position": [
+        -128,
+        224
+      ],
+      "id": "dfcf6557-bf75-4f0e-8645-70b60f138d54",
+      "name": "Azure OpenAI Chat Model",
+      "credentials": {
+        "azureOpenAiApi": {
+          "id": "E5UcLM5LHGS6iV5E",
+          "name": "Azure Open AI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "{{ $fromAI('CustomerID') }}",
+        "options": {
+          "queryReplacement": ""
+        }
+      },
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.6,
+      "position": [
+        592,
+        224
+      ],
+      "id": "7695bdb3-fd1f-4060-81a4-c2d110b21b35",
+      "name": "Execute a SQL query in Postgres",
+      "credentials": {
+        "postgres": {
+          "id": "UxeHV5PhgZVG815q",
+          "name": "Postgres account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "deepseek-v3.1",
+          "mode": "list",
+          "cachedResultName": "deepseek-v3.1"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -256,
+        208
+      ],
+      "id": "7258660f-6b52-4340-a712-919152d90513",
+      "name": "LM Studio",
+      "credentials": {
+        "openAiApi": {
+          "id": "ehBt8WmLTvJ9I202",
+          "name": "OpenAi account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Default Data Loader": {
+      "ai_document": [
+        [
+          {
+            "node": "Postgres PGVector Store",
+            "type": "ai_document",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Local File Trigger": {
+      "main": [
+        [
+          {
+            "node": "Read/Write Files from Disk",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres Chat Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres PGVector Store1": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read/Write Files from Disk": {
+      "main": [
+        [
+          {
+            "node": "Postgres PGVector Store",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Chat Model": {
+      "ai_languageModel": [
+        []
+      ]
+    },
+    "Embeddings Ollama": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Postgres PGVector Store1",
+            "type": "ai_embedding",
+            "index": 0
+          },
+          {
+            "node": "Postgres PGVector Store",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Azure OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        []
+      ]
+    },
+    "Execute a SQL query in Postgres": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LM Studio": {
+      "ai_languageModel": [
+        []
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "5c057adb-1857-4153-924f-bdaed403a82a",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "c4a4208b977dadb47cd77c469b21ec0947c69366d807be570f4cb9c5168cc604"
+  },
+  "id": "1xfmr5mj8HJVZz2Z",
+  "tags": []
+}
